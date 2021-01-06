@@ -1,22 +1,22 @@
-(* open Base;; *)
 open Core;;
 
-let readfile = In_channel.read_all;;
+type operator =
+  | O_plus
+  | O_minus
+  | O_times
+  | O_divide
+[@@deriving sexp]
+ ;;
 
-let print_int i =
-  Int.to_string i
-  |> Out_channel.output_string stdout
+type t =
+  | E_num of int
+  | E_str of string
+  | E_symb of string
+  | E_op of operator * (t list)
+  | E_app of t list
+[@@deriving sexp]
 ;;
 
-let print_int_opt i =
-  Option.value_exn i
-|> print_int
-;;
-
-let print_newline s =
-  print_string s;
-  print_string "\n"
-;;
 
 let find_matching_close s i =
   let open_parens = ref 1 in
@@ -63,10 +63,10 @@ let get_statement_tokens statement =
   let length = String.length statement in
   let find_token_end i =
     let rec helper i = 
-      let c = String.get statement i in
       if i >= length then
         length
       else
+        let c = String.get statement i in
         match (is_whitespace c) || Char.(c = ')') with
         | true -> i
         | false -> helper (i + 1)
@@ -78,8 +78,16 @@ let get_statement_tokens statement =
     | _ -> helper i
   in
   let tokens = ref [] in
-  let i = ref 1 in
-  while !i < length - 1 do
+  let start =
+    if length = 0 then
+      0
+    else
+      match String.get statement 0 with
+      | '(' -> 1
+      | _ -> 0
+  in
+  let i = ref start in
+  while !i < length do
     let c = String.get statement !i in
     match is_whitespace c with
     | true -> i := !i + 1
@@ -94,41 +102,7 @@ let get_statement_tokens statement =
   List.rev !tokens
 ;;
 
-let%expect_test _ =
-  List.iter ~f:print_newline (get_statement_tokens "(a)");
-    [%expect{|
-    a
-  |}]
-
-let%expect_test _ =
-  List.iter ~f:print_newline (get_statement_tokens "(a b c)");
-    [%expect{|
-    a
-    b  
-    c
-  |}]
-
-let%expect_test _ =
-  List.iter ~f:print_newline (get_statement_tokens "(a (b c))");
-    [%expect{|
-    a
-    (b c)  
-  |}]
-
-let%expect_test _ =
-  List.iter ~f:print_newline (get_statement_tokens "(add 1 2 
-(b c) 3 4 5)");
-    [%expect{|
-    add
-    1
-    2
-    (b c)  
-    3
-    4
-    5
-  |}]
-
-
+(*
 let get_statements file_body =
   let find_parens i accum c =
     if Char.(c = '(') then
@@ -179,99 +153,39 @@ let get_statements file_body =
   in statement_yanker statement_bounds []
    |> List.rev
 ;;
+*)
 
+let parse_operator = function
+  | "+" -> Some O_plus
+  | "-" -> Some O_minus
+  | "*" -> Some O_times
+  | "/" -> Some O_divide
+  | _ -> None (* throw error here *)
+;;
 
-(*
-(* get_statements tests *)
+let parse_literal lit =
+  try E_num (Int.of_string lit)
+  with Failure _ ->
+    let length = String.length lit in
+    match length with
+    | 0 | 1 -> E_symb lit
+    | _ ->
+      (let first = String.get lit 0 in
+       let last = String.get lit (length - 1) in
+       match first, last with
+       | ('"', '"') -> E_str (String.sub ~pos:1 ~len:(length - 2) lit)
+       | _ -> E_symb lit)
+;;
+    
+let rec parse_statement statement =
+  let tokens = get_statement_tokens statement in
+  match tokens with
+  | []-> parse_literal statement
+  | [token] -> parse_literal token
+  | f::r -> (match parse_operator f with
+      | Some op -> E_op (op, List.map r ~f:parse_statement)
+      | None -> E_app (List.map tokens ~f:parse_statement))
+;;
 
-let print_statements s =
-  let s = get_statements s in
-  let f s =
-    print_string s;
-    print_string "\n"
-  in
-  List.iter ~f s
-
-let%expect_test _ =
-  print_statements "()";
-    [%expect{|
-    ()
-  |}]
-
-let%expect_test _ =
-  print_statements "(a)";
-    [%expect{|
-    (a)
-  |}]
-
-let%expect_test _ =
-  print_statements "(a)(b)(c)";
-    [%expect{|
-    (a)
-    (b)
-    (c)
-  |}]
-
-let%expect_test _ =
-  print_statements "(a()()b)(c)";
-    [%expect{|
-    (a()()b)
-    (c)
-  |}]
-
-let%expect_test _ =
-  print_statements "(a()()b)(c)";
-    [%expect{|
-    (a()()b)
-    (c)
-  |}]
-
-let%expect_test _ =
-  print_statements
-    "(a()()b)\n 
-    (define x 5)
-    (c)";
-    [%expect{|
-    (a()()b)
-    (define x 5)
-    (c)
-  |}]
-
-(* find_matching_close tests *)
-
-let%expect_test _ =
-  print_int_opt (find_matching_close "(a()()b)(c)" 0);
-    [%expect{|
-     7
-  |}]
-
-let%expect_test _ =
-  print_int_opt (find_matching_close "(a()()b)(c)" 2);
-    [%expect{|
-     3
-  |}]
-
-let%expect_test _ =
-  print_int_opt (find_matching_close "(((()(()))))" 1);
-    [%expect{|
-     10
-  |}]
-
-(* get_toplevel_statements tests *)
-
-let%expect_test _ =
-  List.iter ~f:print_string (get_toplevel_statements "()");
-    [%expect{|
-    ()
-  |}]
-
-let%expect_test _ =
-  List.iter ~f:print_newline (get_toplevel_statements "()s(a)(ab(d))");
-    [%expect{|
-    ()
-    (a)
-    (ab(d))
-  |}]
-
-
-    *)
+let parse_file_body file_body =
+  List.map ~f:parse_statement (get_toplevel_statements file_body)

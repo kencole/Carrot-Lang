@@ -1,6 +1,6 @@
-(library
- (name hello)
- (inline_tests)
+(executable
+ (name carrot)
+; (inline_tests)
  (libraries base core)
  (preprocess
    (pps ppx_jane)))

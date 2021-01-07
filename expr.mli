@@ -14,18 +14,5 @@ type t =
   | E_app of t list
 [@@deriving sexp]
 ;;
-(*
-val find_matching_close : string -> int -> int option
-
-val get_toplevel_statements : string -> string list
-
-val get_statement_tokens : string -> string list
-
-val parse_operator : string -> operator option
-
-val parse_literal : string -> expr
-
-val parse_statement : string -> expr
-*)
 
 val parse_file_body : string -> t list

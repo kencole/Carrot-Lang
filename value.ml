@@ -1,10 +1,14 @@
 open Core;;
 
-type t =
+type vlist =
+  | Empty
+  | Cons of t * vlist
+and t =
   | V_none
   | V_num of int
   | V_str of string
   | V_builtin of string
+  | V_list of vlist
 [@@deriving sexp]
 
 type environment = stored_value String.Map.t
@@ -12,10 +16,10 @@ and stored_value =
   | Builtin of (t list -> environment -> t * environment)
   | Variable of t
 
-let print_int i =
+(*let print_int i =
   Int.to_string i
   |> Out_channel.output_string stdout
-;;
+  ;;*)
 
 let print_newline s =
   print_string s;
@@ -27,6 +31,9 @@ let to_string = function
   | V_str s -> s
   | V_none -> "None"
   | V_builtin s -> "<builtin: " ^ s ^ ">"
+  | V_list lis ->
+    Sexp.to_string [%sexp (lis : vlist)]
+    
 
 let print_value t =
   print_newline (to_string t)
@@ -45,6 +52,8 @@ let apply_on_two f =
 ;;
 
 let get_starter_env () =
+  let starter_env = []
+  in
   let define sym v env =
     match sym with
     | V_str s ->
@@ -55,15 +64,12 @@ let get_starter_env () =
     | _ -> (V_none, env)
   in
   let define = apply_on_two define in
+  let starter_env =
+    ("define", Builtin define) :: starter_env
+  in
   let prnt args env =
-    let print_one = function
-    | V_num n -> print_int n
-    | V_str s -> print_string s
-    | V_none -> print_string "None"
-    | V_builtin s ->
-      print_string "<builtin: ";
-      print_string s;
-      print_string ">"
+    let print_one t =
+      print_string (to_string t)
     in
     let print_one_then_space v =
       print_one v;
@@ -73,11 +79,26 @@ let get_starter_env () =
     print_newline "";
     (V_none, env)
   in
-  String.Map.of_alist_exn [
-    "define", Builtin define ;
-    "print", Builtin prnt
-  ]
-    ;;
+  let starter_env =
+    ("print", Builtin prnt) :: starter_env
+  in
+  let cons (f : t) (r : t) env =
+    match r with
+    | V_list lis -> (V_list (Cons (f, lis)), env)
+    | _ -> Error.raise (Error.of_string "Expected list type")
+  in
+  let cons = apply_on_two cons in
+  let starter_env =
+    ("cons", Builtin cons) :: starter_env
+  in
+  let empty _args env =
+    (V_list Empty, env)
+  in
+  let starter_env =
+    ("empty", Builtin empty) :: starter_env
+  in
+  String.Map.of_alist_exn starter_env
+;;
 
 
 let val_to_ints args =

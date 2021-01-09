@@ -1,8 +1,12 @@
-type t =
+type vlist =
+  | Empty
+  | Cons of t * vlist
+and t =
   | V_none
   | V_num of int
   | V_str of string
   | V_builtin of string
+  | V_list of vlist
 [@@deriving sexp]
 
 type environment = stored_value Core.String.Map.t

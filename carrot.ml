@@ -100,3 +100,20 @@ let%expect_test _ =
     a 2
   |}]
 
+let%expect_test _ =
+  run_program "
+(define a \"a 2\")
+(print a)
+";
+    [%expect{|
+    a 2
+  |}]
+
+let%expect_test _ =
+  run_program "
+(print (cons 3 (empty 1)))
+";
+    [%expect{|
+    (Cons(V_num 3)Empty)
+  |}]
+

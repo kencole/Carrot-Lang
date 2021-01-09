@@ -10,10 +10,11 @@ let run_program s =
       | Some env -> Value.eval_expr_with_env statement env
     in
     (Some env, result)
-  in  
-  Expr.parse_file_body s
-  |> List.folding_map ~f:pass_along_env ~init:None
-  |> List.iter ~f:Value.print_value
+  in
+  ignore  
+  (Expr.parse_file_body s
+   |> List.folding_map ~f:pass_along_env ~init:None : Value.t list)
+  (* |> List.iter ~f:Value.print_value *)
 ;;
 
 let program_file =
@@ -24,46 +25,45 @@ let program_file =
   | _ -> "" (* throw error *)
 ;;
 
-let file_contents = readfile program_file;;
+(* let file_contents = readfile program_file;;
 
-let () = run_program file_contents;;
+   let () = run_program file_contents;;*)
 
 (* BEGIN TESTS ---------------------------------------------- *)
 
- (*
+ 
 
 let%expect_test _ =
-  run_program "(+ 1 1)";
+  run_program "(print (+ 1 1) (+ 2 3))";
     [%expect{|
-    2
+    2 5
   |}]
 
 let%expect_test _ =
-  run_program "(+ (* 2 3) 1)";
+  run_program "(print (+ (* 2 3) 1))";
     [%expect{|
     7
   |}]
 
 let%expect_test _ =
-  run_program "(+ (* 2 3) 1) (+ 1 2)";
+  run_program "(print (+ (* 2 3) 1)) (print (+ 1 2))";
     [%expect{|
     7
     3
   |}]
 
 let%expect_test _ =
-  run_program "(define x 2) (+ x 2)";
+  run_program "(define x 2) (print (+ x 2))";
     [%expect{|
-    None
     4
   |}]
 
 let%expect_test _ =
   run_program "
-(/ 1 2)
-(+ 1 1)
-(+ (+ (+ (+ 1))))
-(* 1 2 3 4 5)
+(print (/ 1 2))
+(print (+ 1 1))
+(print (+ (+ (+ (+ 1)))))
+(print (* 1 2 3 4 5))
 
 ";
     [%expect{|
@@ -73,4 +73,30 @@ let%expect_test _ =
     120
   |}]
 
-*)
+let%expect_test _ =
+  run_program "
+(define a 1)
+(print a)
+";
+    [%expect{|
+    1
+  |}]
+
+let%expect_test _ =
+  run_program "
+(define a \"a\")
+(print a)
+";
+    [%expect{|
+    a
+  |}]
+
+let%expect_test _ =
+  run_program "
+(define a \"a 2\")
+(print a)
+";
+    [%expect{|
+    a 2
+  |}]
+

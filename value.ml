@@ -12,11 +12,35 @@ and stored_value =
   | Builtin of (t list -> environment -> t * environment)
   | Variable of t
 
+let print_int i =
+  Int.to_string i
+  |> Out_channel.output_string stdout
+;;
+
+let print_newline s =
+  print_string s;
+  print_string "\n"
+;;
+
+let to_string = function
+  | V_num n -> Int.to_string n
+  | V_str s -> s
+  | V_none -> "None"
+  | V_builtin s -> "<builtin: " ^ s ^ ">"
+
+let print_value t =
+  print_newline (to_string t)
+      
 let apply_on_two f =
   let func l env =
     match l with
     | [a ; b] -> f a b env
-    | _ -> Error.raise (Error.of_string "Awef")
+    | _ ->
+      let error_string =
+        "Incorrect number of arguments. Expected 2 got "
+        ^ (Int.to_string (List.length l))
+      in
+      Error.raise (Error.of_string error_string)
   in func
 ;;
 
@@ -31,15 +55,37 @@ let get_starter_env () =
     | _ -> (V_none, env)
   in
   let define = apply_on_two define in
-    String.Map.of_alist_exn [
-    "define", Builtin define
+  let prnt args env =
+    let print_one = function
+    | V_num n -> print_int n
+    | V_str s -> print_string s
+    | V_none -> print_string "None"
+    | V_builtin s ->
+      print_string "<builtin: ";
+      print_string s;
+      print_string ">"
+    in
+    let print_one_then_space v =
+      print_one v;
+      print_string " "
+    in
+    List.iter ~f:print_one_then_space args;
+    print_newline "";
+    (V_none, env)
+  in
+  String.Map.of_alist_exn [
+    "define", Builtin define ;
+    "print", Builtin prnt
   ]
+    ;;
 
 
 let val_to_ints args =
     let val_to_int = function
     | V_num v -> v
-    | _ -> 0 (* error here? *)
+    | _ as v ->
+      Error.raise
+        (Error.of_string ("Expected int received" ^ (to_string v)))
   in
   List.map ~f:val_to_int args
 ;;
@@ -53,7 +99,7 @@ exception Error of string
 
 let fold_with_first_as_init ~f args =
   match args with
-  | [] -> raise (Error "Empty list") (*throw error here *)
+  | [] -> raise (Error "No args") 
   | h :: t -> List.fold ~f ~init:h t
 ;;
 
@@ -70,7 +116,11 @@ let rec eval (expr : Expr.t) ~env : t * environment =
   | E_app args ->
     eval_app args ~env
   | E_symb s -> match Map.find env s with
-    | None -> V_str s, env (* throw error here *)
+    | None ->
+      let error_string =
+        "Unbound identifier " ^ s
+      in
+      Error.raise (Error.of_string error_string)
     | Some sv ->
       (match sv with
        | Variable v -> v, env
@@ -90,7 +140,17 @@ and eval_op (op : Expr.operator) args ~env =
    in
    (v, env)
 and eval_app args ~env =
-  let args =
+  (* special case to not error on unbound identifiers for define *)
+  let (args : Expr.t list) =
+    match args with
+    | (E_symb "define") :: (E_symb unbound) :: r ->
+      (E_symb "define") :: (E_str unbound) :: r
+    | (E_symb "define") :: (E_str s) :: _ ->
+      Error.raise
+        (Error.of_string ("Expected symbol - found \"" ^ s ^ "\""))
+    | _ -> args
+   in   
+   let args =
     List.map ~f:(eval ~env) args
     |> List.map ~f:fst
   in
@@ -114,31 +174,6 @@ let eval_expr (expr : Expr.t) : t * environment =
   eval_expr_with_env expr starter_env
 ;;
 
-
-
-let print_int i =
-  Int.to_string i
-  |> Out_channel.output_string stdout
-;;
-
-let print_int_newline i =
-  print_int i;
-  print_string "\n"
-;;
-
-let print_newline s =
-  print_string s;
-  print_string "\n"
-;;
-
-let print_value = function
-  | V_num n -> print_int_newline n
-  | V_str s -> print_newline s
-  | V_none -> print_newline "None"
-  | V_builtin s ->
-    print_string "<builtin: ";
-    print_string s;
-    print_newline ">"
 
 
 (* BEGIN tests ----------------------------------------------------- *)

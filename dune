@@ -1,6 +1,6 @@
-(executable
+(library
  (name carrot)
-; (inline_tests)
+ (inline_tests)
  (libraries base core)
  (preprocess
    (pps ppx_jane)))

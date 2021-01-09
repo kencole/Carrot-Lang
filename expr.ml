@@ -17,6 +17,20 @@ type t =
 [@@deriving sexp]
 ;;
 
+let find_matching_close_quote s i =
+  let break = ref false in
+  let i = ref (i + 1) in
+  let length = String.length s in
+  while not !break && !i < length do
+    (match String.get s !i with
+     | '"' -> break := true
+     | _ -> ());
+    i := !i + 1
+  done;
+  match !break with
+  | true -> Some (!i - 1)
+  | false -> None
+;;
 
 let find_matching_close s i =
   let open_parens = ref 1 in
@@ -71,6 +85,10 @@ let get_statement_tokens statement =
         | true -> i
         | false -> helper (i + 1)
     in match String.get statement i with
+    | '"' ->
+      (match find_matching_close_quote statement i with
+       | Some v -> v + 1
+       | None -> -1) (* throw some error here ? *)      
     | '(' ->
       (match find_matching_close statement i with
        | Some v -> v + 1
@@ -107,7 +125,7 @@ let parse_operator = function
   | "-" -> Some O_minus
   | "*" -> Some O_times
   | "/" -> Some O_divide
-  | _ -> None (* throw error here *)
+  | _ -> None 
 ;;
 
 let parse_literal lit =
@@ -140,17 +158,18 @@ let parse_file_body file_body =
 
 (* Begin tests ------------------------------------------------- *)
 
-(*
+
 
 let print_int i =
   Int.to_string i
   |> Out_channel.output_string stdout
 ;;
 
+(*
 let print_int_newline i =
   print_int i;
   print_string "\n"
-;;
+;; *)
 
 let print_int_opt i =
   Option.value_exn i
@@ -299,6 +318,14 @@ let%expect_test _ =
   |}]
 
 let%expect_test _ =
+  List.iter ~f:print_newline (get_statement_tokens "(a \"b d\" c)");
+    [%expect{|
+    a
+    "b d"
+    c
+  |}]
+
+let%expect_test _ =
   List.iter ~f:print_newline (get_statement_tokens "(a (b c))");
     [%expect{|
     a
@@ -362,4 +389,4 @@ let%expect_test _ =
   |}]
 
 
-    *)
+    

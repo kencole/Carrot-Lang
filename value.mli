@@ -15,7 +15,7 @@ and environment = stored_value Core.String.Map.t
 and stored_value =
   | Builtin of (t list -> environment -> t * environment)
   | Variable of t
-
+  | Recursive of t ref
 
 val eval_expr : Expr.t -> t * environment
 

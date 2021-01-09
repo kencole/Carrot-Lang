@@ -158,7 +158,7 @@ let parse_file_body file_body =
 
 (* Begin tests ------------------------------------------------- *)
 
-
+(*
 
 let print_int i =
   Int.to_string i
@@ -183,6 +183,7 @@ let print_newline s =
 
 
 (* get_toplevel_statements tests ------------------------------- *)
+
 
 let print_statements s =
   let s = get_toplevel_statements s in
@@ -390,3 +391,4 @@ let%expect_test _ =
 
 
     
+*)

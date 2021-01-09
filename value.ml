@@ -16,6 +16,7 @@ and environment = stored_value String.Map.t
 and stored_value =
   | Builtin of (t list -> environment -> t * environment)
   | Variable of t
+  | Recursive of t ref
 
 let print_newline s =
   print_string s;
@@ -81,6 +82,19 @@ let get_starter_env () =
      "true", Variable (V_bool true);
      "false", Variable (V_bool false);
      "empty", Variable (V_list Empty)]
+  in
+  let equals a b env =
+    let eq = match a, b with
+      | V_num a, V_num b -> V_bool (a = b)
+      | V_bool a, V_bool b -> V_bool Bool.(a = b)
+      | V_str a, V_str b -> V_bool String.(a = b)
+      | _ -> V_bool false
+    in
+    eq, env
+  in
+  let equals = apply_on_two equals in
+  let starter_env =
+    ("=", Builtin equals) :: starter_env
   in
   let define sym v env =
     match sym with
@@ -197,6 +211,7 @@ let rec eval (expr : Expr.t) ~env : t * environment =
     | Some sv ->
       (match sv with
        | Variable v -> v, env
+       | Recursive v -> !v, env
        | Builtin _func -> V_builtin s, env) (* ????? *)
 and eval_op (op : Expr.operator) args ~env =
   let args =
@@ -214,6 +229,48 @@ and eval_op (op : Expr.operator) args ~env =
    (v, env)
 and eval_app args ~env =
   match args with
+  | (E_symb "begin") :: r ->
+    (let pass_along_env_func env expr =
+       let v, env = eval expr ~env in
+       env, v
+     in
+     let last =
+       List.folding_map r ~f:pass_along_env_func ~init:env
+      |> List.last
+     in
+     match last with
+     | Some v -> v, env
+     | None -> V_none, env)
+  | [(E_symb "let") ; (E_symb unbound) ; v ; body] ->
+    let new_env =
+      Map.set ~key:unbound ~data:(Variable (fst (eval v ~env))) env
+    in
+    eval body ~env:new_env
+  | [(E_symb "lambda") ; (E_symb param) ; body] ->
+    V_fun (param, body, env), env
+  | [(E_symb "deffun*") ; (E_symb unbound) ; (E_symb param) ; body] ->
+    let deffunrec sym param body env =
+      let func =
+        let inner_env =
+          let empty_func =
+            V_fun ("", E_num 0, String.Map.of_alist_exn [])
+          in
+          Map.set ~key:sym ~data:(Recursive (ref empty_func)) env
+        in
+        V_fun (param, body, inner_env)
+      in
+      let new_env =
+         Map.set ~key:sym ~data:(Variable func) env
+      in
+      (match func with
+        | V_fun (_, _, env) ->
+          (match Map.find_exn env sym with
+           | Recursive r -> r := func
+           | _ -> ())
+        | _ -> ());
+      V_none, new_env
+    in
+    deffunrec unbound param body env    
   | [(E_symb "deffun") ; (E_symb unbound) ; (E_symb param) ; body] ->
     let deffun sym param body env =
       let func =
@@ -252,6 +309,7 @@ and eval_app args ~env =
        | V_builtin func ->
          (match Map.find_exn env func with
           | Variable _ -> raise (Error "awef")
+          | Recursive _ -> raise (Error "awefawef")
           | Builtin func -> func tl env)
        | V_fun (param, expr, env) ->
          (match List.hd tl with

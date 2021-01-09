@@ -26,7 +26,7 @@ let program_file =
 
 (* let file_contents = readfile program_file;;
 
-   let () = run_program file_contents;;*)
+   let () = run_program file_contents;; *)
 
 (* BEGIN TESTS ---------------------------------------------- *)
 
@@ -40,12 +40,14 @@ first
 rest
 is-empty
 if
+lambda
 
 none
 true
 false
 empty
 *)
+
 
 
 let%expect_test _ =
@@ -186,6 +188,7 @@ first
 rest
 empty?
 if
+lambda
 
 none
 true
@@ -213,4 +216,18 @@ let%expect_test _ =
     Empty
     1
     2
+  |}]
+
+let%expect_test _ =
+  run_program "
+(deffun* f n 
+ (begin 
+  (print n)
+  (if (= n 0)
+      0
+      (f (+ n -1)))))
+(print (f 10))
+";
+    [%expect{|
+    0
   |}]

@@ -16,11 +16,6 @@ and stored_value =
   | Builtin of (t list -> environment -> t * environment)
   | Variable of t
 
-(*let print_int i =
-  Int.to_string i
-  |> Out_channel.output_string stdout
-  ;;*)
-
 let print_newline s =
   print_string s;
   print_string "\n"
@@ -34,7 +29,6 @@ let to_string = function
   | V_list lis ->
     Sexp.to_string [%sexp (lis : vlist)]
     
-
 let print_value t =
   print_newline (to_string t)
       
@@ -52,7 +46,8 @@ let apply_on_two f =
 ;;
 
 let get_starter_env () =
-  let starter_env = []
+  let starter_env =
+    ["none", Variable V_none]
   in
   let define sym v env =
     match sym with

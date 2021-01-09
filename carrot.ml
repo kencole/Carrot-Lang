@@ -11,10 +11,9 @@ let run_program s =
     in
     (Some env, result)
   in
-  ignore  
-  (Expr.parse_file_body s
-   |> List.folding_map ~f:pass_along_env ~init:None : Value.t list)
-  (* |> List.iter ~f:Value.print_value *)
+  (ignore  
+     (Expr.parse_file_body s
+      |> List.folding_map ~f:pass_along_env ~init:None : Value.t list))
 ;;
 
 let program_file =
@@ -31,7 +30,7 @@ let program_file =
 
 (* BEGIN TESTS ---------------------------------------------- *)
 
- 
+
 
 let%expect_test _ =
   run_program "(print (+ 1 1) (+ 2 3))";
@@ -109,11 +108,46 @@ let%expect_test _ =
     a 2
   |}]
 
+
 let%expect_test _ =
   run_program "
-(print (cons 3 (empty 1)))
+(define a 3)
+(print a)
+(define a 4)
+(print a)
+(print (+ a a))
+";
+    [%expect{|
+    3
+    4
+    8
+  |}]
+
+let%expect_test _ =
+  run_program "
+(define a (print 2))
+(print a)
+";
+    [%expect{|
+    2
+    None
+  |}]
+
+let%expect_test _ =
+  run_program "
+(define prnt 2)
+(print 3)
+";
+    [%expect{|
+    3
+  |}]
+
+let%expect_test _ =
+  run_program "
+(print (cons 3 (empty none)))
 ";
     [%expect{|
     (Cons(V_num 3)Empty)
   |}]
 
+  

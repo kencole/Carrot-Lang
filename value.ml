@@ -7,11 +7,12 @@ and t =
   | V_none
   | V_num of int
   | V_str of string
+  | V_bool of bool
   | V_builtin of string
   | V_list of vlist
+  | V_fun of string * Expr.t * environment
 [@@deriving sexp]
-
-type environment = stored_value String.Map.t
+and environment = stored_value String.Map.t
 and stored_value =
   | Builtin of (t list -> environment -> t * environment)
   | Variable of t
@@ -25,13 +26,28 @@ let to_string = function
   | V_num n -> Int.to_string n
   | V_str s -> s
   | V_none -> "None"
+  | V_bool b -> if b then "true" else "false" 
   | V_builtin s -> "<builtin: " ^ s ^ ">"
   | V_list lis ->
     Sexp.to_string [%sexp (lis : vlist)]
+  | V_fun (_param, _expr, _env) -> "<function>"
     
 let print_value t =
   print_newline (to_string t)
-      
+
+let _apply_on_three f =
+  let func l env =
+    match l with
+    | [a ; b; c] -> f a b c env
+    | _ ->
+      let error_string =
+        "Incorrect number of arguments. Expected 3 got "
+        ^ (Int.to_string (List.length l))
+      in
+      Error.raise (Error.of_string error_string)
+  in func
+;;
+
 let apply_on_two f =
   let func l env =
     match l with
@@ -45,9 +61,26 @@ let apply_on_two f =
   in func
 ;;
 
+let apply_on_one f =
+  let func l env =
+    match l with
+    | [a] -> f a env
+    | _ ->
+      let error_string =
+        "Incorrect number of arguments. Expected 1 got "
+        ^ (Int.to_string (List.length l))
+      in
+      Error.raise (Error.of_string error_string)
+  in func
+;;
+
+
 let get_starter_env () =
   let starter_env =
-    ["none", Variable V_none]
+    ["none", Variable V_none;
+     "true", Variable (V_bool true);
+     "false", Variable (V_bool false);
+     "empty", Variable (V_list Empty)]
   in
   let define sym v env =
     match sym with
@@ -56,7 +89,7 @@ let get_starter_env () =
          Map.set ~key:s ~data:(Variable v) env
        in
        V_none, new_env)
-    | _ -> (V_none, env)
+    | _ -> (V_none, env) (* error here *)
   in
   let define = apply_on_two define in
   let starter_env =
@@ -86,11 +119,35 @@ let get_starter_env () =
   let starter_env =
     ("cons", Builtin cons) :: starter_env
   in
-  let empty _args env =
-    (V_list Empty, env)
+  let is_empty arg env =
+    match arg with
+    | V_list Empty -> (V_bool true, env)
+    | V_list _ -> (V_bool false, env)
+    | _ -> Error.raise (Error.of_string "is_empty got non-list")
   in
+  let is_empty = apply_on_one is_empty in
   let starter_env =
-    ("empty", Builtin empty) :: starter_env
+    ("empty?", Builtin is_empty) :: starter_env
+  in
+  let first arg env =
+    match arg with
+    | V_list (Cons (f, _r)) -> (f, env)
+    | V_list  _ -> Error.raise (Error.of_string "first called on empty")
+    | _ -> Error.raise (Error.of_string "first got non-list")
+  in
+  let first = apply_on_one first in
+  let starter_env =
+    ("first", Builtin first) :: starter_env
+  in
+  let rest arg env =
+    match arg with
+    | V_list (Cons (_f, r)) -> (V_list r, env)
+    | V_list  _ -> Error.raise (Error.of_string "rest called on empty")
+    | _ -> Error.raise (Error.of_string "rest got non-list")
+  in
+  let rest = apply_on_one rest in
+  let starter_env =
+    ("rest", Builtin rest) :: starter_env
   in
   String.Map.of_alist_exn starter_env
 ;;
@@ -156,30 +213,57 @@ and eval_op (op : Expr.operator) args ~env =
    in
    (v, env)
 and eval_app args ~env =
-  (* special case to not error on unbound identifiers for define *)
-  let (args : Expr.t list) =
-    match args with
-    | (E_symb "define") :: (E_symb unbound) :: r ->
-      (E_symb "define") :: (E_str unbound) :: r
-    | (E_symb "define") :: (E_str s) :: _ ->
-      Error.raise
-        (Error.of_string ("Expected symbol - found \"" ^ s ^ "\""))
-    | _ -> args
-   in   
-   let args =
-    List.map ~f:(eval ~env) args
-    |> List.map ~f:fst
-  in
   match args with
-  | [] -> V_none, env (* throw error here *)
-  | hd :: tl ->
-    match hd with
-    | V_builtin func ->
-      (match Map.find_exn env func with
-      | Variable _ -> raise (Error "awef")
-      | Builtin func -> func tl env)
-    | _ -> V_none, env (* TODO *)
+  | [(E_symb "deffun") ; (E_symb unbound) ; (E_symb param) ; body] ->
+    let deffun sym param body env =
+      let func =
+        V_fun (param, body, env)
+      in
+      let new_env =
+         Map.set ~key:sym ~data:(Variable func) env
+      in
+      V_none, new_env
+    in
+    deffun unbound param body env
+  | [(E_symb "if") ; cond ; cons ; altern] ->
+    (match fst (eval cond ~env) with
+    | V_bool true -> eval cons ~env
+    | V_bool false -> eval altern ~env
+    | _ -> raise (Error "If got non bool"))
+  | _ ->
+   (* special case to not error on unbound identifiers for define *)
+    (let (args : Expr.t list) =
+       match args with
+       | (E_symb "define") :: (E_symb unbound) :: r ->
+         (E_symb "define") :: (E_str unbound) :: r
+       | (E_symb "define") :: (E_str s) :: _ ->
+         Error.raise
+        (Error.of_string ("Expected symbol - found \"" ^ s ^ "\""))
+       | _ -> args
+     in   
+     let args =
+       List.map ~f:(eval ~env) args
+    |> List.map ~f:fst
+     in
+     match args with
+     | [] -> raise (Error "Somethin wrong")
+     | hd :: tl ->
+       match hd with
+       | V_builtin func ->
+         (match Map.find_exn env func with
+          | Variable _ -> raise (Error "awef")
+          | Builtin func -> func tl env)
+       | V_fun (param, expr, env) ->
+         (match List.hd tl with
+          | None -> raise (Error "Function called no parameters")
+          | Some arg ->
+            let new_env = Map.set env ~key:param ~data:(Variable arg) in
+            eval expr ~env:new_env)
+       | _ -> raise (Error "Function called on non-function"))
 ;;
+
+
+
 
 let eval_expr_with_env (expr : Expr.t) (env : environment) : t * environment =
   eval expr ~env

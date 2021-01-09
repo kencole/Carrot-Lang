@@ -30,6 +30,22 @@ let program_file =
 
 (* BEGIN TESTS ---------------------------------------------- *)
 
+(* GRAMMER has
+print
+define
+deffun
+cons
+empty
+first
+rest
+is-empty
+if
+
+none
+true
+false
+empty
+*)
 
 
 let%expect_test _ =
@@ -144,10 +160,57 @@ let%expect_test _ =
 
 let%expect_test _ =
   run_program "
-(print (cons 3 (empty none)))
+(print (cons 3 empty))
 ";
     [%expect{|
     (Cons(V_num 3)Empty)
   |}]
-
   
+let%expect_test _ =
+  run_program "
+(deffun f x (+ x x))
+(print (f 2))
+";
+    [%expect{|
+    4
+  |}]
+
+
+(* GRAMMER has
+print
+define
+deffun
+cons
+empty
+first
+rest
+empty?
+if
+
+none
+true
+false
+empty
+*)
+
+let%expect_test _ =
+  run_program "
+(deffun f x (cons 3 x))
+(print (f empty))
+(print (empty? empty))
+(print (empty? (cons 3 empty)))
+(print (first (cons 3 empty)))
+(print (rest (cons \"a\" empty)))
+(deffun g l (if (empty? l) 1 2))
+(print (g empty))
+(print (g (cons 1 empty)))
+";
+    [%expect{|
+    (Cons(V_num 3)Empty)
+    true
+    false
+    3
+    Empty
+    1
+    2
+  |}]

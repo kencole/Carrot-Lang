@@ -24,16 +24,17 @@ let program_file =
   | _ -> "" (* throw error *)
 ;;
 
-(* let file_contents = readfile program_file;;
+let file_contents = readfile program_file;;
 
-   let () = run_program file_contents;; *)
+let () = run_program file_contents;;
 
 (* BEGIN TESTS ---------------------------------------------- *)
-
+(*
 (* GRAMMER has
 print
 define
 deffun
+deffun*
 cons
 empty
 first
@@ -41,6 +42,9 @@ rest
 is-empty
 if
 lambda
+=
+and
+or
 
 none
 true
@@ -178,24 +182,6 @@ let%expect_test _ =
   |}]
 
 
-(* GRAMMER has
-print
-define
-deffun
-cons
-empty
-first
-rest
-empty?
-if
-lambda
-
-none
-true
-false
-empty
-*)
-
 let%expect_test _ =
   run_program "
 (deffun f x (cons 3 x))
@@ -231,3 +217,5 @@ let%expect_test _ =
     [%expect{|
     0
   |}]
+
+    *)

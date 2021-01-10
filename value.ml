@@ -83,6 +83,37 @@ let get_starter_env () =
      "false", Variable (V_bool false);
      "empty", Variable (V_list Empty)]
   in
+  let bool_and =
+    let bool_and a b env =
+      let bool_and =
+        (match a, b with
+         | V_bool true, V_bool true -> V_bool true
+         | V_bool _, V_bool _ -> V_bool false
+         | _ -> Error.raise (Error.of_string "and got non bool"))
+      in
+      bool_and, env
+    in
+    apply_on_two bool_and
+  in
+  let starter_env =
+    ("and", Builtin bool_and) :: starter_env
+  in
+  let bool_or =
+    let bool_or a b env =
+      let bool_or =
+        (match a, b with
+         | V_bool true, V_bool _
+         | V_bool _, V_bool true -> V_bool true
+         | V_bool _, V_bool _ -> V_bool false
+         | _ -> Error.raise (Error.of_string "or got non bool"))
+      in
+      bool_or, env
+    in
+    apply_on_two bool_or
+  in
+  let starter_env =
+    ("or", Builtin bool_or) :: starter_env
+  in
   let equals a b env =
     let eq = match a, b with
       | V_num a, V_num b -> V_bool (a = b)
@@ -111,7 +142,7 @@ let get_starter_env () =
   in
   let prnt args env =
     let print_one t =
-      print_string (to_string t)
+      print_string (to_string t);
     in
     let print_one_then_space v =
       print_one v;
@@ -119,6 +150,7 @@ let get_starter_env () =
     in
     List.iter ~f:print_one_then_space args;
     print_newline "";
+    Out_channel.flush stdout;
     (V_none, env)
   in
   let starter_env =

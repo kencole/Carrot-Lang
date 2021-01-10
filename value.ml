@@ -10,7 +10,7 @@ and t =
   | V_bool of bool
   | V_builtin of string
   | V_list of vlist
-  | V_fun of string * Expr.t * environment
+  | V_fun of string list * Expr.t * environment
 [@@deriving sexp]
 and environment = stored_value String.Map.t
 and stored_value =
@@ -279,17 +279,25 @@ and eval_app args ~env =
     in
     eval body ~env:new_env
   | [(E_symb "lambda") ; (E_symb param) ; body] ->
-    V_fun (param, body, env), env
-  | [(E_symb "deffun*") ; (E_symb unbound) ; (E_symb param) ; body] ->
-    let deffunrec sym param body env =
+    V_fun ([param], body, env), env
+  | (E_symb "deffun*") :: (E_symb unbound) :: params ->
+    let body = List.last_exn params in
+    let params = List.take params ((List.length params) - 1)
+                 |> List.map ~f:(fun e ->
+                     match e with
+                     | E_symb s -> s
+                     | _ -> Error.raise
+                              (Error.of_string ("parameter not symbol")))
+    in
+    let deffunrec sym params body env =
       let func =
         let inner_env =
           let empty_func =
-            V_fun ("", E_num 0, String.Map.of_alist_exn [])
+            V_fun ([], E_num 0, String.Map.of_alist_exn [])
           in
           Map.set ~key:sym ~data:(Recursive (ref empty_func)) env
         in
-        V_fun (param, body, inner_env)
+        V_fun (params, body, inner_env)
       in
       let new_env =
          Map.set ~key:sym ~data:(Variable func) env
@@ -302,18 +310,26 @@ and eval_app args ~env =
         | _ -> ());
       V_none, new_env
     in
-    deffunrec unbound param body env    
-  | [(E_symb "deffun") ; (E_symb unbound) ; (E_symb param) ; body] ->
-    let deffun sym param body env =
+    deffunrec unbound params body env    
+  | (E_symb "deffun") :: (E_symb unbound) :: params ->
+    let body = List.last_exn params in
+    let params = List.take params ((List.length params) - 1)
+                 |> List.map ~f:(fun e ->
+                     match e with
+                     | E_symb s -> s
+                     | _ -> Error.raise
+                              (Error.of_string ("parameter not symbol")))
+    in
+    let deffun sym params body env =
       let func =
-        V_fun (param, body, env)
+        V_fun (params, body, env)
       in
       let new_env =
          Map.set ~key:sym ~data:(Variable func) env
       in
       V_none, new_env
     in
-    deffun unbound param body env
+    deffun unbound params body env
   | [(E_symb "if") ; cond ; cons ; altern] ->
     (match fst (eval cond ~env) with
     | V_bool true -> eval cons ~env
@@ -332,23 +348,24 @@ and eval_app args ~env =
      in   
      let args =
        List.map ~f:(eval ~env) args
-    |> List.map ~f:fst
+       |> List.map ~f:fst
      in
      match args with
      | [] -> raise (Error "Somethin wrong")
-     | hd :: tl ->
+     | hd :: args ->
        match hd with
        | V_builtin func ->
          (match Map.find_exn env func with
           | Variable _ -> raise (Error "awef")
           | Recursive _ -> raise (Error "awefawef")
-          | Builtin func -> func tl env)
-       | V_fun (param, expr, env) ->
-         (match List.hd tl with
-          | None -> raise (Error "Function called no parameters")
-          | Some arg ->
-            let new_env = Map.set env ~key:param ~data:(Variable arg) in
-            eval expr ~env:new_env)
+          | Builtin func -> func args env)
+       | V_fun (params, expr, env) ->
+         let add_arg_to_env env param arg =
+           Map.set env ~key:param ~data:(Variable arg)
+         in
+         let new_env = List.fold2_exn params args ~init:env ~f:add_arg_to_env
+         in
+         eval expr ~env:new_env
        | _ -> raise (Error "Function called on non-function"))
 ;;
 

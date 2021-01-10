@@ -24,12 +24,12 @@ let program_file =
   | _ -> "" (* throw error *)
 ;;
 
-let file_contents = readfile program_file;;
+(*let file_contents = readfile program_file;;
 
-let () = run_program file_contents;;
+  let () = run_program file_contents;;*)
 
 (* BEGIN TESTS ---------------------------------------------- *)
-(*
+
 (* GRAMMER has
 print
 define
@@ -207,8 +207,6 @@ let%expect_test _ =
 let%expect_test _ =
   run_program "
 (deffun* f n 
- (begin 
-  (print n)
   (if (= n 0)
       0
       (f (+ n -1)))))
@@ -218,4 +216,40 @@ let%expect_test _ =
     0
   |}]
 
-    *)
+let%expect_test _ =
+  run_program "
+(deffun* fib x
+ (if (or (= x 0) (= x 1))
+     1
+     (+ (fib (- x 1))
+	(fib (- x 2))))))
+(print (fib 10))
+";
+    [%expect{|
+    89
+  |}]
+
+
+let%expect_test _ =
+  run_program "
+(deffun add a b (+ a b))
+(print (add 11 10))
+";
+    [%expect{|
+    21
+  |}]
+    
+let%expect_test _ =
+  run_program "
+(deffun* map f l
+ (if (empty? l)
+     l
+     (cons (f (first l))
+           (map f (rest l))))) 
+(deffun double x (+ x x))
+(define list (cons 1 (cons 2 (cons 3 empty))))
+(print (map double list))
+";
+    [%expect{|
+    (Cons(V_num 2)(Cons(V_num 4)(Cons(V_num 6)Empty)))
+  |}]

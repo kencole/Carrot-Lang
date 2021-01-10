@@ -8,7 +8,7 @@ and t =
   | V_bool of bool
   | V_builtin of string
   | V_list of vlist
-  | V_fun of string * Expr.t * environment
+  | V_fun of string list * Expr.t * environment
 [@@deriving sexp]
 
 and environment = stored_value Core.String.Map.t

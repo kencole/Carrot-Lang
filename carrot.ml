@@ -24,9 +24,9 @@ let program_file =
   | _ -> "" (* throw error *)
 ;;
 
-let file_contents = readfile program_file;;
+(* let file_contents = readfile program_file;;
 
-let () = run_program file_contents;;
+   let () = run_program file_contents;; *)
 
 (* BEGIN TESTS ---------------------------------------------- *)
 
@@ -52,7 +52,7 @@ false
 empty
 *)
 
-(*
+
 
 let%expect_test _ =
   run_program "(print (+ 1 1) (+ 2 3))";
@@ -169,7 +169,7 @@ let%expect_test _ =
 (print (cons 3 empty))
 ";
     [%expect{|
-    (Cons(V_num 3)Empty)
+    [3]
   |}]
   
 let%expect_test _ =
@@ -195,11 +195,11 @@ let%expect_test _ =
 (print (g (cons 1 empty)))
 ";
     [%expect{|
-    (Cons(V_num 3)Empty)
+    [3]
     true
     false
     3
-    Empty
+    []
     1
     2
   |}]
@@ -251,6 +251,32 @@ let%expect_test _ =
 (print (map double list))
 ";
     [%expect{|
-    (Cons(V_num 2)(Cons(V_num 4)(Cons(V_num 6)Empty)))
+    [6, 4, 2]
   |}]
- *)
+
+let%expect_test _ =
+  run_program "
+(deffun* fold f l acc
+  (if (empty? l)
+      acc
+      (fold f (rest l) (f acc (first l)))))
+
+(deffun add2 a b (+ a b))
+
+(deffun* range x
+  (if (= x -1)
+      empty
+      (cons x (range (- x 1)))))
+
+(print (fold add2 (range 10000) 0))
+
+(print (range 10))
+(print empty)
+";
+    [%expect{|
+    50005000
+    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    []
+  |}]
+
+

@@ -88,11 +88,12 @@ let get_statement_tokens statement =
     | '"' ->
       (match find_matching_close_quote statement i with
        | Some v -> v + 1
-       | None -> -1) (* throw some error here ? *)      
+       | None -> Error.raise (Error.of_string "Unclosed string literal"))      
     | '(' ->
       (match find_matching_close statement i with
        | Some v -> v + 1
-       | None -> -1) (* throw some error here ? *)
+       | None -> Error.raise
+                   (Error.of_string "Unclosed parenthetical statement"))
     | _ -> helper i
   in
   let tokens = ref [] in

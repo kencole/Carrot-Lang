@@ -19,9 +19,9 @@ let run_program s =
 let program_file =
   let argv = Sys.get_argv () in
   match Array.length argv with
-  | 0 | 1 -> "" (* throw error *)
+  | 0 | 1 -> Error.raise (Error.of_string "Expected input file name")
   | 2 -> argv.(1)
-  | _ -> "" (* throw error *)
+  | _ -> Error.raise (Error.of_string "Too many input files")
 ;;
 
 (* let file_contents = readfile program_file;;
@@ -278,5 +278,6 @@ let%expect_test _ =
     [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     []
   |}]
+
 
 

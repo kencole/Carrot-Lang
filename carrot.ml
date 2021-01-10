@@ -24,9 +24,9 @@ let program_file =
   | _ -> "" (* throw error *)
 ;;
 
-(*let file_contents = readfile program_file;;
+let file_contents = readfile program_file;;
 
-  let () = run_program file_contents;;*)
+let () = run_program file_contents;;
 
 (* BEGIN TESTS ---------------------------------------------- *)
 
@@ -52,7 +52,7 @@ false
 empty
 *)
 
-
+(*
 
 let%expect_test _ =
   run_program "(print (+ 1 1) (+ 2 3))";
@@ -253,3 +253,4 @@ let%expect_test _ =
     [%expect{|
     (Cons(V_num 2)(Cons(V_num 4)(Cons(V_num 6)Empty)))
   |}]
+ *)

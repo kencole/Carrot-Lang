@@ -23,14 +23,34 @@ let print_newline s =
   print_string "\n"
 ;;
 
-let to_string = function
+let rec to_string = function
   | V_num n -> Int.to_string n
   | V_str s -> s
   | V_none -> "None"
   | V_bool b -> if b then "true" else "false" 
   | V_builtin s -> "<builtin: " ^ s ^ ">"
   | V_list lis ->
-    Sexp.to_string [%sexp (lis : vlist)]
+    let rec build_list t acc =
+      match t with
+      | Empty -> acc
+      | Cons (t, lis) ->
+        build_list lis ((to_string t) :: ", " :: acc)
+    in
+    let pieces =
+      let
+        head = "[" :: (build_list lis [])
+      in
+      (match List.length head with
+       | 1 -> ["[]"]
+       | _ as len ->
+         let pieces = 
+           List.take head (len - 1)
+         in
+         List.append pieces ["]"])
+    in                  
+    let buf = Buffer.create 16 in
+    List.iter ~f:(Buffer.add_string buf) pieces;
+    Buffer.contents buf          
   | V_fun (_param, _expr, _env) -> "<function>"
     
 let print_value t =
